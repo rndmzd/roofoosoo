@@ -4,52 +4,52 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Status</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 10px;
-            border: 1px solid #ccc;
-            text-align: left;
-        }
-        th {
-            background-color: #f4f4f4;
+            padding: 20px;
         }
         .ready {
-            color: green;
+            color: #198754;
+            font-weight: 500;
         }
         .not-ready {
-            color: orange;
+            color: #fd7e14;
+            font-weight: 500;
         }
         .incomplete {
-            color: red;
+            color: #dc3545;
+            font-weight: 500;
         }
     </style>
 </head>
 <body>
-    <h1>Video Transcoding Status</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>Video Name</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for video in videos %}
-            <tr>
-                <td>{{ video.name }}</td>
-                <td class="{% if video.state == 'Ready' %}ready{% elif video.state == 'Not Ready' %}not-ready{% else %}incomplete{% endif %}">
-                    {{ video.state }}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="container">
+        <h1 class="mb-4">Video Transcoding Status</h1>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Video Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for video in videos %}
+                    <tr>
+                        <td>{{ video.name }}</td>
+                        <td class="{% if video.state == 'Ready' %}ready{% elif video.state == 'Not Ready' %}not-ready{% else %}incomplete{% endif %}">
+                            {{ video.state }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
