@@ -1,0 +1,61 @@
+{
+  "Description": "OTT, DASH (Wi-Fi), MP4, AVC, 16x9 DAR, 1280x720p, 29.97 Hz, 5 Mbps CBR",
+  "Category": "OTT-DASH",
+  "Name": "System-Ott_Dash_Mp4_Avc_16x9_1280x720p_30Hz_5Mbps_NoDI",
+  "Settings": {
+    "VideoDescription": {
+      "Width": 1280,
+      "ScalingBehavior": "DEFAULT",
+      "Height": 720,
+      "TimecodeInsertion": "DISABLED",
+      "AntiAlias": "ENABLED",
+      "Sharpness": 50,
+      "CodecSettings": {
+        "Codec": "H_264",
+        "H264Settings": {
+          "InterlaceMode": "PROGRESSIVE",
+          "ParNumerator": 1,
+          "NumberReferenceFrames": 3,
+          "Syntax": "DEFAULT",
+          "FramerateDenominator": 1001,
+          "GopClosedCadence": 1,
+          "HrdBufferInitialFillPercentage": 90,
+          "GopSize": 90,
+          "Slices": 1,
+          "GopBReference": "ENABLED",
+          "HrdBufferSize": 13000000,
+          "SlowPal": "DISABLED",
+          "ParDenominator": 1,
+          "SpatialAdaptiveQuantization": "ENABLED",
+          "TemporalAdaptiveQuantization": "ENABLED",
+          "FlickerAdaptiveQuantization": "ENABLED",
+          "EntropyEncoding": "CABAC",
+          "Bitrate": 5000000,
+          "FramerateControl": "SPECIFIED",
+          "RateControlMode": "CBR",
+          "CodecProfile": "HIGH",
+          "Telecine": "NONE",
+          "FramerateNumerator": 30000,
+          "MinIInterval": 0,
+          "AdaptiveQuantization": "HIGH",
+          "CodecLevel": "LEVEL_4",
+          "FieldEncoding": "PAFF",
+          "SceneChangeDetect": "ENABLED",
+          "FramerateConversionAlgorithm": "DUPLICATE_DROP",
+          "UnregisteredSeiTimecode": "DISABLED",
+          "GopSizeUnits": "FRAMES",
+          "ParControl": "SPECIFIED",
+          "NumberBFramesBetweenReferenceFrames": 3,
+          "RepeatPps": "DISABLED"
+        }
+      },
+      "AfdSignaling": "NONE",
+      "DropFrameTimecode": "ENABLED",
+      "RespondToAfd": "NONE",
+      "ColorMetadata": "INSERT"
+    },
+    "ContainerSettings": {
+      "Container": "MPD"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "Settings": {
+    "OutputGroups": [
+      {
+        "Name": "DASH ISO",
+        "OutputGroupSettings": {
+          "Type": "DASH_ISO_GROUP_SETTINGS",
+          "DashIsoGroupSettings": {
+            "SegmentLength": 30,
+            "FragmentLength": 2,
+            "Destination": "s3://roofoosoo/"
+          }
+        },
+        "Outputs": [
+          {
+            "Preset": "OTT - DASH - MP4 - AVC - 1920x1080p - 29.97 Hz - 8.5 CBR - SP HQ - No DI"
+          },
+          {
+            "Preset": "OTT - DASH - MP4 - AVC - 1280x720p - 29.97 Hz - 6.5 CBR - SP HQ - No DI"
+          },
+          {
+            "Preset": "OTT - DASH - MP4 - AVC - 1280x720p - 29.97 Hz - 3.5 CBR - SP HQ - No DI"
+          },
+          {
+            "Preset": "OTT - DASH - MP4 - AVC - 960x540p - 29.97 Hz - 1 CBR - SP HQ - No DI"
+          },
+          {
+            "Preset": "System-Ott_Dash_Mp4_Aac_He_96Kbps"
+          }
+        ],
+        "CustomName": "H.264 30Hz - 1080/8.5, 720/6.5, 720/3.5, 540/1 - AAC 96"
+      }
+    ],
+    "TimecodeConfig": {
+      "Source": "ZEROBASED"
+    }
+  },
+  "Name": "Roofoosoo Shaka Platform"
+}
