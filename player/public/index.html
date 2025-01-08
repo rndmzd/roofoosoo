@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Watch Party (No Shaka UI Overlay)</title>
+
+    <!-- Shaka Player (Core only) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.12.5/shaka-player.compiled.js"></script>
+    <!-- Socket.IO client (served by our Node server) -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+      body {
+        background: #000;
+        color: #fff;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        text-align: center;
+      }
+      #video {
+        width: 80%;
+        max-width: 800px;
+        margin: 20px 0;
+        border: 1px solid #666;
+      }
+      /* Hide native controls so we only rely on our custom buttons */
+      video::-webkit-media-controls {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Watch Party (No Shaka UI Overlay)</h1>
+
+    <!-- The video element with no controls -->
+    <video id="video" preload="auto" poster="https://shaka-player-demo.appspot.com/assets/poster.jpg"></video>
+
+    <!-- Owner-only controls -->
+    <div id="ownerControls" style="margin: 10px; display: none;">
+      <button id="playBtn">Play</button>
+      <button id="pauseBtn">Pause</button>
+    </div>
+
+    <!-- Non-owner "Click to Start" button -->
+    <div id="newViewerPrompt" style="margin: 10px; display: none;">
+      <button id="startWatchingBtn">Click to Start Watching</button>
+    </div>
+
+    <script>
+      // Decide if this client is the "owner" or not
+      // In a real app, you'd determine this via server auth, query params, etc.
+      const isOwner = true; // <-- CHANGE to true if you want to test "owner" mode
+
+      // References
+      let socket, player, videoEl;
+
+      document.addEventListener("DOMContentLoaded", initApp);
+
+      async function initApp() {
+        // Initialize Shaka (Core Only)
+        shaka.polyfill.installAll();
+        if (!shaka.Player.isBrowserSupported()) {
+          console.error("Browser not supported by Shaka!");
+          return;
+        }
+
+        videoEl = document.getElementById("video");
+        player = new shaka.Player(videoEl);
+
+        try {
+          // Attach and load a test stream
+          await player.attach(videoEl);
+          await player.load("https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd");
+          console.log("Shaka: video loaded (core only).");
+        } catch (err) {
+          console.error("Shaka: error loading video:", err);
+        }
+
+        initSocket();
+        setupUI();
+      }
+
+      // Socket.IO setup
+      function initSocket() {
+        socket = io();
+        socket.on("connect", () => {
+          console.log("Socket connected:", socket.id);
+        });
+
+        // Received when we first connect: the server's current state
+        socket.on("currentPlayback", (playbackState) => {
+          console.log("Got currentPlayback on join:", playbackState);
+          syncToPlaybackState(playbackState);
+        });
+
+        // Received when the owner triggers a play/pause
+        socket.on("playbackCommand", (data) => {
+          console.log("Received playbackCommand:", data);
+          handlePlaybackCommand(data);
+        });
+      }
+
+      function setupUI() {
+        if (isOwner) {
+          // Show the owner controls
+          document.getElementById("ownerControls").style.display = "block";
+
+          // Owner's play/pause
+          document.getElementById("playBtn").addEventListener("click", () => {
+            const currentTime = videoEl.currentTime;
+            sendPlaybackCommand("PLAY", currentTime);
+          });
+          document.getElementById("pauseBtn").addEventListener("click", () => {
+            const currentTime = videoEl.currentTime;
+            sendPlaybackCommand("PAUSE", currentTime);
+          });
+
+          // (Optional) Send "timeUpdate" to server frequently
+          videoEl.addEventListener("timeupdate", () => {
+            socket.emit("timeUpdate", videoEl.currentTime);
+          });
+        } else {
+          // Non-owner => Show "Click to Start Watching" so we can get autoplay permission
+          document.getElementById("newViewerPrompt").style.display = "block";
+          document
+            .getElementById("startWatchingBtn")
+            .addEventListener("click", onNewViewerStart);
+        }
+      }
+
+      // Called when a new viewer clicks "Start Watching"
+      // We attempt to sync them to the correct time and play
+      function onNewViewerStart() {
+        // Hide the button after click
+        document.getElementById("newViewerPrompt").style.display = "none";
+
+        // Attempt to play at the current time we've synced to (if the server gave us a state)
+        videoEl.play().catch((err) => {
+          console.warn("Autoplay was blocked:", err);
+          // If blocked, you might need to keep the button or show a "Tap to play" overlay.
+        });
+      }
+
+      // The owner calls this function to send a command
+      function sendPlaybackCommand(action, time) {
+        // Immediately update local video
+        handlePlaybackCommand({ action, time });
+        // Then broadcast
+        socket.emit("playbackCommand", { action, time });
+      }
+
+      // Apply an incoming playback command (owner or server)
+      function handlePlaybackCommand({ action, time }) {
+        videoEl.currentTime = time;
+        if (action === "PLAY") {
+          videoEl.play().catch((err) => {
+            console.warn("Autoplay blocked for PLAY command:", err);
+          });
+        } else if (action === "PAUSE") {
+          videoEl.pause();
+        }
+      }
+
+      // Sync to the server's current state (fired upon first connection)
+      function syncToPlaybackState({ status, time }) {
+        videoEl.currentTime = time;
+        if (status === "PLAYING") {
+          // Only auto-play if we're the owner or we've already clicked "Start Watching."
+          // If isOwner is true, we can try play immediately; owners presumably had user interaction
+          // If new viewer hasn't clicked yet, it won't play until they click.
+          if (isOwner) {
+            videoEl.play().catch((err) => {
+              console.warn("Owner autoplay blocked:", err);
+            });
+          }
+          // If not owner, we wait for user to click the "startWatchingBtn"
+        } else {
+          videoEl.pause();
+        }
+      }
+    </script>
+  </body>
+</html>
