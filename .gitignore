@@ -1,5 +1,7 @@
 **node_modules
 **shaka-player*/
+**media*/
+**transcoding*/
 
 # Logs
 logs
