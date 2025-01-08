@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Shaka Player with Owner-Only UI</title>
+
+    <!-- Shaka Player (Core) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.12.5/shaka-player.compiled.js"></script>
+    <!-- Shaka Player (UI) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.12.5/shaka-player.ui.js"></script>
+    <!-- Shaka Player (UI CSS) -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.12.5/controls.css"
+    />
+
+    <style>
+      /* Basic page styling */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #000;
+        font-family: sans-serif;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+
+      /* Container that holds the player and UI */
+      .shaka-player-container {
+        width: 90%;
+        max-width: 800px;
+        margin: 0 auto;
+        position: relative;
+      }
+
+      /* By default, we'll have the Shaka UI visible.
+         We'll hide/disable it if the user is not the owner. */
+      /* Example: if user is NOT the owner, we might set opacity to 0,
+         or 'display: none' or 'pointer-events: none'. We'll do that via JS. */
+    </style>
+  </head>
+
+  <body>
+    <h1 style="text-align: center;">Shaka Player (Owner-Only Controls)</h1>
+    
+    <!-- 
+      This DIV is the container for Shaka's built-in UI.
+      Note the special classes and data attributes:
+        - class="shaka-player-container"
+        - data-shaka-player-container
+    -->
+    <div
+      id="playerContainer"
+      class="shaka-player-container"
+      data-shaka-player-container
+    >
+      <!-- The video element must have class="shaka-video" for the Shaka UI to attach properly. -->
+      <video
+        id="video"
+        class="shaka-video"
+        width="100%"
+        height="auto"
+        poster="https://shaka-player-demo.appspot.com/assets/poster.jpg"
+      ></video>
+    </div>
+
+    <script>
+      // Replace with your own streaming manifest (DASH/HLS).
+      const manifestUri =
+        "https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd";
+
+      // We'll store references to player/UI in global variables for convenience.
+      let player, ui, controls;
+
+      // Called on DOMContentLoaded
+      function initApp() {
+        shaka.polyfill.installAll();
+        if (shaka.Player.isBrowserSupported()) {
+          initPlayer();
+        } else {
+          console.error("Browser not supported by Shaka!");
+        }
+      }
+
+      async function initPlayer() {
+        // Get references to DOM elements
+        const video = document.getElementById("video");
+        const container = document.getElementById("playerContainer");
+
+        // Create a Shaka Player instance and attach it to the video
+        player = new shaka.Player(video);
+
+        // (Optional) Listen for Shaka error events
+        player.addEventListener("error", onShakaErrorEvent);
+
+        try {
+          // Load your stream
+          await player.load(manifestUri);
+          console.log("The video has loaded successfully.");
+        } catch (err) {
+          console.error("Error loading the video:", err);
+        }
+
+        // Create the UI overlay and controls
+        ui = new shaka.ui.Overlay(player, container, video);
+        controls = ui.getControls();
+
+        // We now decide if the user is an owner or not
+        checkOwnershipAndRestrict();
+      }
+
+      // Example logic to check if current user is "page owner"
+      // In reality, you'd check an auth token, user role, or server session.
+      function isPageOwner() {
+        // Placeholder
+        // Return false to test what happens if user is NOT the owner
+        return true;
+      }
+
+      // Restrict the UI if user is not the owner
+      function checkOwnershipAndRestrict() {
+        const container = document.getElementById("playerContainer");
+        if (!isPageOwner()) {
+          // Hide or disable the entire UI
+          // Option 1: completely hide controls
+          // container.style.display = "none";
+
+          // Option 2: just make them invisible & unclickable
+          container.style.opacity = "0";
+          container.style.pointerEvents = "none";
+        }
+      }
+
+      // Handle error events
+      function onShakaErrorEvent(event) {
+        console.error("Shaka error event:", event.detail);
+      }
+
+      // Initialize on DOM ready
+      document.addEventListener("DOMContentLoaded", initApp);
+    </script>
+  </body>
+</html>

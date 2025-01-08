@@ -1,0 +1,79 @@
+<!-- Load Socket.IO client script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.12.5/shaka-player.compiled.js"></script>
+
+<script>
+  let socket;
+  let video, player;
+
+  async function initPlayer() {
+    shaka.polyfill.installAll();
+    if (shaka.Player.isBrowserSupported()) {
+      video = document.getElementById("video");
+      player = new shaka.Player(video);
+
+      // Load your manifest
+      await player.attach(video);
+      await player.load("https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd");
+    } else {
+      console.error("Browser not supported!");
+    }
+  }
+
+  function initSocket() {
+    socket = io(); // Connect to our Socket.IO server
+
+    // When we receive a playbackStateChange, update local video
+    socket.on("playbackStateChange", (newState) => {
+      handleIncomingPlaybackChange(newState);
+    });
+  }
+
+  function handleIncomingPlaybackChange(newState) {
+    // newState might look like: { action: "PLAY", time: 10.5 }
+    switch (newState.action) {
+      case "PLAY":
+        video.currentTime = newState.time;
+        video.play();
+        break;
+      case "PAUSE":
+        video.currentTime = newState.time;
+        video.pause();
+        break;
+      case "SEEK":
+        video.currentTime = newState.time;
+        break;
+      // etc.
+    }
+  }
+
+  // Owner calls this function whenever they do something in the UI
+  function ownerPlaybackChange(action) {
+    const currentTime = video.currentTime;
+    const newState = { action, time: currentTime };
+
+    // Update the local video
+    handleIncomingPlaybackChange(newState);
+
+    // Send the new state to the server so others can update
+    socket.emit("playbackStateChange", newState);
+  }
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    await initPlayer();
+    initSocket();
+
+    // Suppose we have some simple controls for the owner:
+    document.getElementById("ownerPlayBtn").addEventListener("click", () => {
+      ownerPlaybackChange("PLAY");
+    });
+    document.getElementById("ownerPauseBtn").addEventListener("click", () => {
+      ownerPlaybackChange("PAUSE");
+    });
+    document.getElementById("ownerSeekBtn").addEventListener("click", () => {
+      // Seek to 60s for demonstration
+      video.currentTime = 60;
+      ownerPlaybackChange("SEEK");
+    });
+  });
+</script>

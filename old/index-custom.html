@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Owner-Only Custom Controls</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.12.5/shaka-player.compiled.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #000;
+        color: #fff;
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100vh;
+        justify-content: center;
+      }
+      #player-container {
+        width: 90%;
+        max-width: 800px;
+      }
+      video {
+        width: 100%;
+        height: auto;
+        pointer-events: none; /* Disable direct user interaction */
+      }
+      /* Hide native controls in most browsers */
+      video::-webkit-media-controls {
+        display: none !important;
+      }
+      /* Our custom control bar (owner-only) */
+      #ownerControlBar {
+        display: none; /* Only shown if isPageOwner = true */
+        margin-top: 10px;
+      }
+      button, input[type="range"] {
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="player-container">
+      <video id="video"></video>
+    </div>
+
+    <!-- Owner-only control bar -->
+    <div id="ownerControlBar">
+      <button id="playBtn">Play</button>
+      <button id="pauseBtn">Pause</button>
+
+      <!-- A simple range slider for seeking -->
+      <input
+        type="range"
+        id="seekBar"
+        value="0"
+        min="0"
+        max="100"
+        step="0.1"
+        style="width: 200px;"
+      />
+
+      <!-- Volume range -->
+      <input
+        type="range"
+        id="volumeBar"
+        value="1"
+        min="0"
+        max="1"
+        step="0.01"
+      />
+    </div>
+
+    <script>
+      const manifestUri =
+        "https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd";
+
+      let player;
+      let video;
+
+      function initApp() {
+        shaka.polyfill.installAll();
+        if (shaka.Player.isBrowserSupported()) {
+          initPlayer();
+        } else {
+          console.error("Browser not supported!");
+        }
+      }
+
+      async function initPlayer() {
+        video = document.getElementById("video");
+        player = new shaka.Player(video);
+
+        // Listen for Shaka error events
+        player.addEventListener("error", onErrorEvent);
+
+        // Load the manifest
+        try {
+          await player.load(manifestUri);
+          console.log("Video loaded.");
+        } catch (e) {
+          onError(e);
+        }
+      }
+
+      function onErrorEvent(e) {
+        onError(e.detail);
+      }
+
+      function onError(error) {
+        console.error("Shaka Error:", error.code, error);
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        initApp();
+
+        // Example: Show the custom controls if user is the page owner
+        const isPageOwner = true; // Replace with real logic
+        if (isPageOwner) {
+          document.getElementById("ownerControlBar").style.display = "flex";
+        }
+
+        // Set up event listeners for custom control buttons
+        document
+          .getElementById("playBtn")
+          .addEventListener("click", () => video.play());
+        document
+          .getElementById("pauseBtn")
+          .addEventListener("click", () => video.pause());
+
+        // Seek bar logic: update video.currentTime when user drags
+        const seekBar = document.getElementById("seekBar");
+        seekBar.addEventListener("input", () => {
+          const duration = video.duration;
+          if (!isNaN(duration)) {
+            const newTime = (seekBar.value / 100) * duration;
+            video.currentTime = newTime;
+          }
+        });
+
+        // Also, update the seek bar in real-time as the video plays
+        video.addEventListener("timeupdate", () => {
+          const duration = video.duration;
+          if (duration > 0) {
+            const currentPos = (video.currentTime / duration) * 100;
+            seekBar.value = currentPos;
+          }
+        });
+
+        // Volume control
+        const volumeBar = document.getElementById("volumeBar");
+        volumeBar.addEventListener("input", () => {
+          video.volume = volumeBar.value;
+        });
+      });
+    </script>
+  </body>
+</html>
