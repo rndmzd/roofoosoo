@@ -3,12 +3,16 @@ from flask import Flask, jsonify, render_template, send_from_directory, url_for
 from flask_socketio import SocketIO, emit
 import os
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 config = configparser.ConfigParser()
 config.read("../config.ini")
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'  # Required for Flask-SocketIO
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY')  # Load secret key from environment
 socketio = SocketIO(app)
 
 # Store current playback state in memory
