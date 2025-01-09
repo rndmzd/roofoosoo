@@ -1,5 +1,6 @@
 import configparser
 from flask import Flask, jsonify, render_template, send_from_directory, url_for
+from flask_socketio import SocketIO, emit
 import os
 from datetime import datetime
 
@@ -7,6 +8,14 @@ config = configparser.ConfigParser()
 config.read("../config.ini")
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key'  # Required for Flask-SocketIO
+socketio = SocketIO(app)
+
+# Store current playback state in memory
+current_playback = {
+    "status": "PAUSED",
+    "time": 0
+}
 
 # Paths
 MEDIA_DIR = config["DEFAULT"]["MEDIA_DIR"]
@@ -53,11 +62,33 @@ def player(video_name):
         
     # Generate the manifest URL
     manifest_url = url_for('serve_manifest', video_name=video_name)
-    return render_template("player.html", manifest_url=manifest_url)
+    return render_template("player.html", manifest_url=manifest_url, video_name=video_name)
 
 @app.route("/manifest/<video_name>/manifest.mpd")
 def serve_manifest(video_name):
     return send_from_directory(os.path.join(MEDIA_DIR, video_name), "manifest.mpd")
 
+# Socket.IO event handlers
+@socketio.on('connect')
+def handle_connect():
+    # Send current playback state to new client
+    emit('currentPlayback', current_playback)
+
+@socketio.on('playbackCommand')
+def handle_playback_command(data):
+    # Update server's playback state
+    current_playback['time'] = data['time']
+    if data['action'] == 'PLAY':
+        current_playback['status'] = 'PLAYING'
+    elif data['action'] == 'PAUSE':
+        current_playback['status'] = 'PAUSED'
+    
+    # Broadcast to all other clients
+    emit('playbackCommand', data, broadcast=True, include_self=False)
+
+@socketio.on('timeUpdate')
+def handle_time_update(time):
+    current_playback['time'] = time
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    socketio.run(app, host="0.0.0.0", port=8080, debug=True)
