@@ -245,7 +245,6 @@ def serve_manifest(video_name):
 
 # Add new route for serving video segments
 @app.route("/manifest/<video_name>/<path:filename>")
-@cache.cached(timeout=3600)  # Cache video segments for 1 hour
 def serve_video_segment(video_name, filename):
     try:
         # Sanitize inputs
@@ -259,9 +258,21 @@ def serve_video_segment(video_name, filename):
             app.logger.warning(f'Video segment not found: {file_path}')
             return "Segment not found", 404
         
-        response = make_response(send_from_directory(os.path.join(MEDIA_DIR, video_name), filename))
+        # Read and serve the file content
+        with open(file_path, 'rb') as f:
+            content = f.read()
+            
+        response = make_response(content)
+        
+        # Set appropriate content type based on file extension
+        if filename.endswith('.mp4'):
+            response.headers['Content-Type'] = 'video/mp4'
+        elif filename.endswith('.m4s'):
+            response.headers['Content-Type'] = 'video/iso.segment'
+        
         response.headers['Cache-Control'] = 'public, max-age=3600'
         return response
+        
     except Exception as e:
         app.logger.error(f'Error serving video segment - video: {video_name}, file: {filename}: {str(e)}')
         return "Internal server error", 500
