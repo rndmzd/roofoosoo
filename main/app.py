@@ -163,19 +163,28 @@ def default_player():
     
     return "No videos available", 404
 
-@app.route("/player/<video_name>")
-def player(video_name):
-    app.logger.info(f'Accessing player for video: {video_name}')
-    # Verify the manifest exists
-    manifest_path = os.path.join(MEDIA_DIR, video_name, "manifest.mpd")
-    if not os.path.exists(manifest_path):
-        app.logger.warning(f'Manifest not found for video: {video_name}')
-        return "Video not ready", 404
+@app.route("/player")
+def player():
+    app.logger.info('Accessing player')
+    videos = []
+    
+    try:
+        for dirname in os.listdir(MEDIA_DIR):
+            dirpath = os.path.join(MEDIA_DIR, dirname)
+            if os.path.isdir(dirpath):
+                manifest_path = os.path.join(dirpath, "manifest.mpd")
+                if os.path.exists(manifest_path):
+                    videos.append({
+                        'name': dirname,
+                        'manifest_url': url_for('serve_manifest', video_name=dirname)
+                    })
+    except Exception as e:
+        app.logger.error(f"Error finding videos: {str(e)}")
         
-    # Generate the manifest URL
-    manifest_url = url_for('serve_manifest', video_name=video_name)
-    # Pass is_owner flag to template
-    return render_template("player.html", manifest_url=manifest_url, video_name=video_name, is_owner=current_user.is_authenticated)
+    if not videos:
+        return "No videos available", 404
+        
+    return render_template("player.html", videos=videos, is_owner=current_user.is_authenticated)
 
 @app.route("/manifest/<video_name>/manifest.mpd")
 def serve_manifest(video_name):
@@ -223,6 +232,17 @@ def handle_time_update(time):
     if current_user.is_authenticated:  # Only owner can update time
         current_playback['time'] = time
         app.logger.debug(f'Updated playback time to: {time}')
+
+# Add new socket event for video selection
+@socketio.on('videoSelect')
+def handle_video_select(manifest_url):
+    if not current_user.is_authenticated:
+        app.logger.warning(f'Unauthorized video selection attempt from {request.sid}')
+        return
+        
+    # Broadcast the video change to all clients
+    emit('videoChange', manifest_url, broadcast=True)
+    app.logger.info(f'Owner changed video to: {manifest_url}')
 
 if __name__ == "__main__":
     app.logger.info('Starting application server')

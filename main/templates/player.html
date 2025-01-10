@@ -70,144 +70,181 @@
     <button class="back-button" onclick="window.location.href='/admin'">← Back to Admin</button>
     {% endif %}
     
-    <!-- Video element without controls -->
-    <video id="video"></video>
-
-    <!-- Owner controls -->
-    <div id="ownerControls">
-      <button id="playBtn" class="control-button">Play</button>
-      <button id="pauseBtn" class="control-button">Pause</button>
+    <!-- Only show video selector to owner -->
+    {% if is_owner %}
+    <div class="video-selector">
+        <select id="videoSelect" onchange="selectVideo(this.value)">
+            {% for video in videos %}
+                <option value="{{ video.manifest_url }}">{{ video.name }}</option>
+            {% endfor %}
+        </select>
     </div>
+    {% endif %}
 
-    <!-- Non-owner prompt -->
-    <div id="newViewerPrompt">
-      <button id="startWatchingBtn" class="control-button">Click to Start Watching</button>
+    <div id="video-container">
+        <!-- Video element without controls -->
+        <video id="video"></video>
+
+        <!-- Owner controls -->
+        <div id="ownerControls">
+            <button id="playBtn" class="control-button">Play</button>
+            <button id="pauseBtn" class="control-button">Pause</button>
+        </div>
+
+        <!-- Non-owner prompt -->
+        <div id="newViewerPrompt">
+            <button id="startWatchingBtn" class="control-button">Click to Start Watching</button>
+        </div>
     </div>
 
     <script>
-      const manifestUri = '{{ manifest_url }}';
-      // Use server-provided owner flag
-      const isOwner = {{ 'true' if is_owner else 'false' }};
-      
-      let socket, player, videoEl;
-
-      async function init() {
-        // Install built-in polyfills
-        shaka.polyfill.installAll();
-
-        if (shaka.Player.isBrowserSupported()) {
-          try {
-            videoEl = document.getElementById('video');
-            player = new shaka.Player(videoEl);
-            
-            // Listen for errors
-            player.addEventListener('error', (event) => {
-              console.error('Error code', event.detail.code, 'object', event.detail);
-            });
-
-            await player.load(manifestUri);
-            console.log('Video loaded successfully');
-
-            // Initialize socket and UI after video loads
-            initSocket();
-            setupUI();
-          } catch (e) {
-            console.error('Error loading video:', e);
-          }
-        } else {
-          console.error('Browser not supported!');
-        }
-      }
-
-      function initSocket() {
-        socket = io();
+        const manifestUri = '{{ manifest_url }}';
+        // Use server-provided owner flag
+        const isOwner = {{ 'true' if is_owner else 'false' }};
         
-        socket.on('connect', () => {
-          console.log('Socket connected:', socket.id);
-        });
+        let socket, player, videoEl;
 
-        // Received when we first connect: the server's current state
-        socket.on('currentPlayback', (playbackState) => {
-          console.log('Got currentPlayback on join:', playbackState);
-          syncToPlaybackState(playbackState);
-        });
+        async function init() {
+            // Install built-in polyfills
+            shaka.polyfill.installAll();
 
-        // Received when the owner triggers a play/pause
-        socket.on('playbackCommand', (data) => {
-          console.log('Received playbackCommand:', data);
-          handlePlaybackCommand(data);
-        });
-      }
+            if (shaka.Player.isBrowserSupported()) {
+                try {
+                    videoEl = document.getElementById('video');
+                    player = new shaka.Player(videoEl);
+                    
+                    // Listen for errors
+                    player.addEventListener('error', (event) => {
+                        console.error('Error code', event.detail.code, 'object', event.detail);
+                    });
 
-      function setupUI() {
-        if (isOwner) {
-          // Show owner controls
-          document.getElementById('ownerControls').style.display = 'block';
+                    await player.load(manifestUri);
+                    console.log('Video loaded successfully');
 
-          // Owner's play/pause buttons
-          document.getElementById('playBtn').addEventListener('click', () => {
-            const currentTime = videoEl.currentTime;
-            sendPlaybackCommand('PLAY', currentTime);
-          });
-          document.getElementById('pauseBtn').addEventListener('click', () => {
-            const currentTime = videoEl.currentTime;
-            sendPlaybackCommand('PAUSE', currentTime);
-          });
-
-          // Send time updates to server
-          videoEl.addEventListener('timeupdate', () => {
-            socket.emit('timeUpdate', videoEl.currentTime);
-          });
-        } else {
-          // Show "Click to Start" for non-owners
-          document.getElementById('newViewerPrompt').style.display = 'block';
-          document.getElementById('startWatchingBtn')
-            .addEventListener('click', onNewViewerStart);
+                    // Initialize socket and UI after video loads
+                    initSocket();
+                    setupUI();
+                } catch (e) {
+                    console.error('Error loading video:', e);
+                }
+            } else {
+                console.error('Browser not supported!');
+            }
         }
-      }
 
-      // Called when a new viewer clicks "Start Watching"
-      function onNewViewerStart() {
-        document.getElementById('newViewerPrompt').style.display = 'none';
-        videoEl.play().catch((err) => {
-          console.warn('Autoplay was blocked:', err);
-        });
-      }
-
-      // The owner calls this to send a command
-      function sendPlaybackCommand(action, time) {
-        handlePlaybackCommand({ action, time });
-        socket.emit('playbackCommand', { action, time });
-      }
-
-      // Apply an incoming playback command
-      function handlePlaybackCommand({ action, time }) {
-        videoEl.currentTime = time;
-        if (action === 'PLAY') {
-          videoEl.play().catch((err) => {
-            console.warn('Autoplay blocked for PLAY command:', err);
-          });
-        } else if (action === 'PAUSE') {
-          videoEl.pause();
-        }
-      }
-
-      // Sync to the server's current state
-      function syncToPlaybackState({ status, time }) {
-        videoEl.currentTime = time;
-        if (status === 'PLAYING') {
-          if (isOwner) {
-            videoEl.play().catch((err) => {
-              console.warn('Owner autoplay blocked:', err);
+        function initSocket() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('Socket connected:', socket.id);
             });
-          }
-          // If not owner, wait for click on startWatchingBtn
-        } else {
-          videoEl.pause();
-        }
-      }
 
-      document.addEventListener('DOMContentLoaded', init);
+            // Received when we first connect: the server's current state
+            socket.on('currentPlayback', (playbackState) => {
+                console.log('Got currentPlayback on join:', playbackState);
+                syncToPlaybackState(playbackState);
+            });
+
+            // Received when the owner triggers a play/pause
+            socket.on('playbackCommand', (data) => {
+                console.log('Received playbackCommand:', data);
+                handlePlaybackCommand(data);
+            });
+        }
+
+        function setupUI() {
+            if (isOwner) {
+                // Show owner controls
+                document.getElementById('ownerControls').style.display = 'block';
+
+                // Owner's play/pause buttons
+                document.getElementById('playBtn').addEventListener('click', () => {
+                    const currentTime = videoEl.currentTime;
+                    sendPlaybackCommand('PLAY', currentTime);
+                });
+                document.getElementById('pauseBtn').addEventListener('click', () => {
+                    const currentTime = videoEl.currentTime;
+                    sendPlaybackCommand('PAUSE', currentTime);
+                });
+
+                // Send time updates to server
+                videoEl.addEventListener('timeupdate', () => {
+                    socket.emit('timeUpdate', videoEl.currentTime);
+                });
+            } else {
+                // Show "Click to Start" for non-owners
+                document.getElementById('newViewerPrompt').style.display = 'block';
+                document.getElementById('startWatchingBtn')
+                    .addEventListener('click', onNewViewerStart);
+            }
+        }
+
+        // Called when a new viewer clicks "Start Watching"
+        function onNewViewerStart() {
+            document.getElementById('newViewerPrompt').style.display = 'none';
+            videoEl.play().catch((err) => {
+                console.warn('Autoplay was blocked:', err);
+            });
+        }
+
+        // The owner calls this to send a command
+        function sendPlaybackCommand(action, time) {
+            handlePlaybackCommand({ action, time });
+            socket.emit('playbackCommand', { action, time });
+        }
+
+        // Apply an incoming playback command
+        function handlePlaybackCommand({ action, time }) {
+            videoEl.currentTime = time;
+            if (action === 'PLAY') {
+                videoEl.play().catch((err) => {
+                    console.warn('Autoplay blocked for PLAY command:', err);
+                });
+            } else if (action === 'PAUSE') {
+                videoEl.pause();
+            }
+        }
+
+        // Sync to the server's current state
+        function syncToPlaybackState({ status, time }) {
+            videoEl.currentTime = time;
+            if (status === 'PLAYING') {
+                if (isOwner) {
+                    videoEl.play().catch((err) => {
+                        console.warn('Owner autoplay blocked:', err);
+                    });
+                }
+                // If not owner, wait for click on startWatchingBtn
+            } else {
+                videoEl.pause();
+            }
+        }
+
+        // Function to load video (called both by owner selection and socket event)
+        function loadVideo(manifestUrl) {
+            // Initialize or update your dash player with the new manifest URL
+            player.initialize(/* your video element */, manifestUrl, true);
+        }
+
+        // Owner-only function to select and broadcast video change
+        function selectVideo(manifestUrl) {
+            socket.emit('videoSelect', manifestUrl);
+            loadVideo(manifestUrl);
+        }
+
+        // Listen for video changes from the owner
+        socket.on('videoChange', function(manifestUrl) {
+            loadVideo(manifestUrl);
+        });
+
+        // Load the first video when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('videoSelect')) {  // Only if owner
+                loadVideo(document.getElementById('videoSelect').options[0].value);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', init);
     </script>
   </body>
 </html> 
