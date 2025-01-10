@@ -48,7 +48,7 @@ socketio = SocketIO(app, cors_allowed_origins=[domain.strip() for domain in conf
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'admin_login'
 
 app.logger.info('Application startup: Initializing components')
 
@@ -67,46 +67,21 @@ def load_user(user_id):
     return None
 
 # Login route
-@app.route("/login", methods=['GET', 'POST'])
-def login():
+@app.route("/admin/login", methods=['GET', 'POST'])
+def admin_login():
     if request.method == 'POST':
         password = request.form.get('password')
         if password == os.getenv('OWNER_PASSWORD'):  # Check against environment variable
             login_user(owner)
             app.logger.info('Owner login successful')
-            return redirect(url_for('list_videos'))
+            return redirect(url_for('admin_dashboard'))
         app.logger.warning('Failed login attempt with incorrect password')
         flash('Invalid password')
     return render_template('login.html')
 
-@app.route("/logout")
+@app.route("/admin")
 @login_required
-def logout():
-    app.logger.info('Owner logged out')
-    logout_user()
-    return redirect(url_for('login'))
-
-# Store current playback state in memory
-current_playback = {
-    "status": "PAUSED",
-    "time": 0
-}
-
-# Paths
-MEDIA_DIR = config["DEFAULT"]["MEDIA_DIR"]
-RUN_DIR = config["DEFAULT"]["RUN_DIR"]
-
-# Ensure required directories exist
-try:
-    os.makedirs(MEDIA_DIR, exist_ok=True)
-    os.makedirs(RUN_DIR, exist_ok=True)
-    app.logger.info(f'Ensured directories exist: MEDIA_DIR={MEDIA_DIR}, RUN_DIR={RUN_DIR}')
-except Exception as e:
-    app.logger.error(f'Failed to create required directories: {str(e)}')
-
-@app.route("/")
-@login_required  # Only allow authenticated users (owner) to access the index
-def list_videos():
+def admin_dashboard():
     app.logger.info('Listing videos')
     video_states = []
 
@@ -141,6 +116,47 @@ def list_videos():
         
     # Render the state in the web interface
     return render_template("index.html", videos=video_states)
+
+@app.route("/admin/logout")
+@login_required
+def admin_logout():
+    app.logger.info('Owner logged out')
+    logout_user()
+    return redirect(url_for('admin_login'))
+
+# Store current playback state in memory
+current_playback = {
+    "status": "PAUSED",
+    "time": 0
+}
+
+# Paths
+MEDIA_DIR = config["DEFAULT"]["MEDIA_DIR"]
+RUN_DIR = config["DEFAULT"]["RUN_DIR"]
+
+# Ensure required directories exist
+try:
+    os.makedirs(MEDIA_DIR, exist_ok=True)
+    os.makedirs(RUN_DIR, exist_ok=True)
+    app.logger.info(f'Ensured directories exist: MEDIA_DIR={MEDIA_DIR}, RUN_DIR={RUN_DIR}')
+except Exception as e:
+    app.logger.error(f'Failed to create required directories: {str(e)}')
+
+# Make the video player the default route
+@app.route("/")
+def default_player():
+    # Find the first ready video
+    try:
+        for dirname in os.listdir(MEDIA_DIR):
+            dirpath = os.path.join(MEDIA_DIR, dirname)
+            if os.path.isdir(dirpath):
+                manifest_path = os.path.join(dirpath, "manifest.mpd")
+                if os.path.exists(manifest_path):
+                    return redirect(url_for('player', video_name=dirname))
+    except Exception as e:
+        app.logger.error(f"Error finding default video: {str(e)}")
+    
+    return "No videos available", 404
 
 @app.route("/player/<video_name>")
 def player(video_name):
