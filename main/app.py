@@ -38,6 +38,11 @@ config.read("config.ini")
 
 # Configure Flask logger
 app = Flask(__name__)
+
+# Remove Flask's default handlers when in debug mode
+app.logger.handlers.clear()
+
+# Add our custom handlers
 app.logger.addHandler(file_handler)
 app.logger.addHandler(console_handler)
 app.logger.setLevel(logging.INFO)
