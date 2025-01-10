@@ -222,8 +222,24 @@
 
         // Function to load video (called both by owner selection and socket event)
         function loadVideo(manifestUrl) {
-            // Initialize or update your dash player with the new manifest URL
-            player.initialize(/* your video element */, manifestUrl, true);
+            // Stop current playback if exists
+            if (player) {
+                player.reset();
+            }
+            
+            // Initialize player with new manifest URL
+            player = dashjs.MediaPlayer().create();
+            player.initialize(videoEl, manifestUrl, false);  // Changed to false for autoplay control
+            
+            // Set up player options
+            player.updateSettings({
+                'streaming': {
+                    'lowLatencyEnabled': false,
+                    'abr': {
+                        'useDefaultABRRules': true
+                    }
+                }
+            });
         }
 
         // Owner-only function to select and broadcast video change
