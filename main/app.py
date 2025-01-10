@@ -14,7 +14,7 @@ config.read("config.ini")
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY')  # Load secret key from environment
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins=[domain.strip() for domain in config["DEFAULT"]["ALLOWED_DOMAINS"].split(",")])
 
 # Initialize Flask-Login
 login_manager = LoginManager()
