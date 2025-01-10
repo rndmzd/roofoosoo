@@ -10,8 +10,6 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf.csrf import CSRFProtect
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 import redis
 import json
 
@@ -59,13 +57,6 @@ cache = Cache(app, config={
 
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY')
 csrf = CSRFProtect(app)
-
-# Initialize rate limiter
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
 
 socketio = SocketIO(app, cors_allowed_origins=[domain.strip() for domain in config["DEFAULT"]["ALLOWED_DOMAINS"].split(",")])
 
@@ -120,7 +111,6 @@ def load_user(user_id):
 
 # Login route with rate limiting
 @app.route("/login", methods=['GET', 'POST'])
-@limiter.limit("5 per minute")  # Rate limit login attempts
 def login():
     if request.method == 'POST':
         password = request.form.get('password')
