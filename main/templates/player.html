@@ -66,7 +66,9 @@
     </style>
   </head>
   <body>
+    {% if is_owner %}
     <button class="back-button" onclick="window.location.href='/'">← Back</button>
+    {% endif %}
     
     <!-- Video element without controls -->
     <video id="video"></video>
@@ -84,8 +86,8 @@
 
     <script>
       const manifestUri = '{{ manifest_url }}';
-      // Set this to true to test owner mode
-      const isOwner = false;
+      // Use server-provided owner flag
+      const isOwner = {{ 'true' if is_owner else 'false' }};
       
       let socket, player, videoEl;
 
