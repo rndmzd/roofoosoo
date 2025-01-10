@@ -8,6 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
     <!-- Socket.IO client -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
 
     <style>
       body {
@@ -83,7 +84,7 @@
 
     <div id="video-container">
         <!-- Video element without controls -->
-        <video id="video"></video>
+        <video id="videoPlayer" controls></video>
 
         <!-- Owner controls -->
         <div id="ownerControls">
@@ -110,7 +111,7 @@
 
             if (shaka.Player.isBrowserSupported()) {
                 try {
-                    videoEl = document.getElementById('video');
+                    videoEl = document.getElementById('videoPlayer');
                     player = new shaka.Player(videoEl);
                     
                     // Listen for errors
@@ -261,6 +262,47 @@
         });
 
         document.addEventListener('DOMContentLoaded', init);
+
+        // Add your existing socket event listeners for playback sync
+        socket.on('playbackCommand', function(data) {
+            if (data.action === 'PLAY') {
+                videoEl.currentTime = data.time;
+                videoEl.play();
+            } else if (data.action === 'PAUSE') {
+                videoEl.currentTime = data.time;
+                videoEl.pause();
+            }
+        });
+
+        socket.on('currentPlayback', function(data) {
+            videoEl.currentTime = data.time;
+            if (data.status === 'PLAYING') {
+                videoEl.play();
+            } else {
+                videoEl.pause();
+            }
+        });
+
+        {% if is_owner %}
+        // Owner-only controls
+        videoEl.addEventListener('play', function() {
+            socket.emit('playbackCommand', {
+                action: 'PLAY',
+                time: videoEl.currentTime
+            });
+        });
+
+        videoEl.addEventListener('pause', function() {
+            socket.emit('playbackCommand', {
+                action: 'PAUSE',
+                time: videoEl.currentTime
+            });
+        });
+
+        videoEl.addEventListener('timeupdate', function() {
+            socket.emit('timeUpdate', videoEl.currentTime);
+        });
+        {% endif %}
     </script>
   </body>
 </html> 
