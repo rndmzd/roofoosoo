@@ -8,6 +8,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
     <!-- Socket.IO client -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <style>
       body {
@@ -17,82 +19,209 @@
         font-family: Arial, sans-serif;
         text-align: center;
       }
-      #video {
+      .video-container {
+        position: relative;
         width: 80%;
-        max-width: 800px;
+        max-width: 1200px;
         margin: 20px auto;
       }
+      #video {
+        width: 100%;
+        background: #111;
+      }
       .controls {
-        margin: 20px;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .video-container:hover .controls {
+        opacity: 1;
       }
       .back-button {
         position: absolute;
         top: 20px;
         left: 20px;
         padding: 10px 20px;
-        background: #333;
+        background: rgba(51, 51, 51, 0.8);
         color: white;
         border: none;
         border-radius: 4px;
         cursor: pointer;
+        z-index: 100;
       }
       .back-button:hover {
         background: #444;
       }
-      #ownerControls {
-        margin: 10px;
-        display: none;
-      }
-      #newViewerPrompt {
-        margin: 10px;
-        display: none;
-      }
       .control-button {
-        padding: 10px 20px;
-        margin: 0 5px;
-        background: #444;
-        color: white;
+        background: transparent;
         border: none;
-        border-radius: 4px;
+        color: white;
         cursor: pointer;
+        padding: 5px 10px;
+        font-size: 1.2em;
       }
       .control-button:hover {
-        background: #555;
+        color: #007bff;
       }
-      /* Hide native controls */
-      video::-webkit-media-controls {
-        display: none !important;
+      .progress-bar {
+        flex-grow: 1;
+        height: 5px;
+        background: #333;
+        cursor: pointer;
+        position: relative;
+      }
+      .progress-fill {
+        height: 100%;
+        background: #007bff;
+        width: 0%;
+        transition: width 0.1s;
+      }
+      .time-display {
+        font-size: 0.9em;
+        min-width: 100px;
+      }
+      .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        display: none;
+      }
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #007bff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .quality-selector {
+        position: relative;
+        display: inline-block;
+      }
+      .quality-menu {
+        display: none;
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        background: rgba(0, 0, 0, 0.9);
+        border-radius: 4px;
+        padding: 5px 0;
+      }
+      .quality-menu.show {
+        display: block;
+      }
+      .quality-menu button {
+        display: block;
+        width: 100%;
+        padding: 5px 20px;
+        background: none;
+        border: none;
+        color: white;
+        text-align: left;
+        cursor: pointer;
+      }
+      .quality-menu button:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .volume-control {
+        display: flex;
+        align-items: center;
+        width: 100px;
+      }
+      .volume-slider {
+        width: 60px;
+        height: 5px;
+        -webkit-appearance: none;
+        background: #333;
+        outline: none;
+      }
+      .volume-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #007bff;
+        border-radius: 50%;
+        cursor: pointer;
       }
     </style>
   </head>
   <body>
     {% if is_owner %}
-    <button class="back-button" onclick="window.location.href='/'">← Back</button>
+    <button class="back-button" onclick="window.location.href='/'">
+      <i class="fas fa-arrow-left"></i> Back
+    </button>
     {% endif %}
     
-    <!-- Video element without controls -->
-    <video id="video"></video>
+    <div class="video-container">
+      <video id="video"></video>
+      
+      <div class="loading-overlay">
+        <div class="spinner"></div>
+      </div>
 
-    <!-- Owner controls -->
-    <div id="ownerControls">
-      <button id="playBtn" class="control-button">Play</button>
-      <button id="pauseBtn" class="control-button">Pause</button>
-    </div>
+      <div class="controls">
+        <button class="control-button" id="playPauseBtn">
+          <i class="fas fa-play"></i>
+        </button>
+        
+        <div class="volume-control">
+          <button class="control-button" id="muteBtn">
+            <i class="fas fa-volume-up"></i>
+          </button>
+          <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100">
+        </div>
 
-    <!-- Non-owner prompt -->
-    <div id="newViewerPrompt">
-      <button id="startWatchingBtn" class="control-button">Click to Start Watching</button>
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        
+        <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+        
+        <div class="quality-selector">
+          <button class="control-button" id="qualityBtn">
+            <i class="fas fa-cog"></i>
+          </button>
+          <div class="quality-menu" id="qualityMenu"></div>
+        </div>
+      </div>
     </div>
 
     <script>
       const manifestUri = '{{ manifest_url }}';
-      // Use server-provided owner flag
       const isOwner = {{ 'true' if is_owner else 'false' }};
       
       let socket, player, videoEl;
+      let isBuffering = false;
+
+      function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) {
+          return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        return `${m}:${s.toString().padStart(2, '0')}`;
+      }
 
       async function init() {
-        // Install built-in polyfills
         shaka.polyfill.installAll();
 
         if (shaka.Player.isBrowserSupported()) {
@@ -100,25 +229,178 @@
             videoEl = document.getElementById('video');
             player = new shaka.Player(videoEl);
             
-            // Listen for errors
+            // Error handling
             player.addEventListener('error', (event) => {
               console.error('Error code', event.detail.code, 'object', event.detail);
+              showError('Video playback error occurred');
+            });
+
+            // Buffer state handling
+            player.addEventListener('buffering', (event) => {
+              isBuffering = event.buffering;
+              document.querySelector('.loading-overlay').style.display = 
+                isBuffering ? 'flex' : 'none';
             });
 
             await player.load(manifestUri);
             console.log('Video loaded successfully');
-
-            // Initialize socket and UI after video loads
+            setupQualityMenu();
             initSocket();
-            setupUI();
+            setupControls();
+            setupKeyboardControls();
           } catch (e) {
             console.error('Error loading video:', e);
+            showError('Failed to load video');
           }
         } else {
-          console.error('Browser not supported!');
+          showError('Browser not supported');
         }
       }
 
+      function setupControls() {
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const muteBtn = document.getElementById('muteBtn');
+        const volumeSlider = document.getElementById('volumeSlider');
+        
+        // Play/Pause button
+        playPauseBtn.addEventListener('click', () => {
+          if (isOwner) {
+            const currentTime = videoEl.currentTime;
+            if (videoEl.paused) {
+              sendPlaybackCommand('PLAY', currentTime);
+            } else {
+              sendPlaybackCommand('PAUSE', currentTime);
+            }
+          }
+        });
+
+        // Progress bar
+        progressBar.addEventListener('click', (e) => {
+          if (isOwner) {
+            const rect = progressBar.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            const time = pos * videoEl.duration;
+            videoEl.currentTime = time;
+            sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', time);
+          }
+        });
+
+        // Volume control
+        volumeSlider.addEventListener('input', (e) => {
+          videoEl.volume = e.target.value / 100;
+          updateVolumeIcon();
+        });
+
+        muteBtn.addEventListener('click', () => {
+          videoEl.muted = !videoEl.muted;
+          updateVolumeIcon();
+        });
+
+        // Time update
+        videoEl.addEventListener('timeupdate', () => {
+          const percent = (videoEl.currentTime / videoEl.duration) * 100;
+          progressFill.style.width = `${percent}%`;
+          timeDisplay.textContent = 
+            `${formatTime(videoEl.currentTime)} / ${formatTime(videoEl.duration)}`;
+          
+          if (isOwner) {
+            socket.emit('timeUpdate', videoEl.currentTime);
+          }
+        });
+
+        // Update play/pause icon
+        videoEl.addEventListener('play', () => {
+          playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        });
+        videoEl.addEventListener('pause', () => {
+          playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        });
+      }
+
+      function updateVolumeIcon() {
+        const icon = document.querySelector('#muteBtn i');
+        if (videoEl.muted || videoEl.volume === 0) {
+          icon.className = 'fas fa-volume-mute';
+        } else if (videoEl.volume < 0.5) {
+          icon.className = 'fas fa-volume-down';
+        } else {
+          icon.className = 'fas fa-volume-up';
+        }
+      }
+
+      function setupQualityMenu() {
+        const tracks = player.getVariantTracks();
+        const qualityMenu = document.getElementById('qualityMenu');
+        const qualityBtn = document.getElementById('qualityBtn');
+
+        tracks.forEach(track => {
+          const button = document.createElement('button');
+          button.textContent = `${track.height}p`;
+          button.onclick = () => {
+            player.selectVariantTrack(track);
+            qualityMenu.classList.remove('show');
+          };
+          qualityMenu.appendChild(button);
+        });
+
+        qualityBtn.onclick = () => {
+          qualityMenu.classList.toggle('show');
+        };
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!qualityBtn.contains(e.target)) {
+            qualityMenu.classList.remove('show');
+          }
+        });
+      }
+
+      function setupKeyboardControls() {
+        document.addEventListener('keydown', (e) => {
+          if (!isOwner) return;
+          
+          switch(e.code) {
+            case 'Space':
+              e.preventDefault();
+              const currentTime = videoEl.currentTime;
+              if (videoEl.paused) {
+                sendPlaybackCommand('PLAY', currentTime);
+              } else {
+                sendPlaybackCommand('PAUSE', currentTime);
+              }
+              break;
+            case 'ArrowLeft':
+              e.preventDefault();
+              if (videoEl.currentTime >= 5) {
+                videoEl.currentTime -= 5;
+                sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', videoEl.currentTime);
+              }
+              break;
+            case 'ArrowRight':
+              e.preventDefault();
+              if (videoEl.currentTime <= videoEl.duration - 5) {
+                videoEl.currentTime += 5;
+                sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', videoEl.currentTime);
+              }
+              break;
+            case 'KeyM':
+              e.preventDefault();
+              videoEl.muted = !videoEl.muted;
+              updateVolumeIcon();
+              break;
+          }
+        });
+      }
+
+      function showError(message) {
+        // You could implement a more sophisticated error display here
+        alert(message);
+      }
+
+      // Socket.IO functions remain the same
       function initSocket() {
         socket = io();
         
@@ -126,82 +408,43 @@
           console.log('Socket connected:', socket.id);
         });
 
-        // Received when we first connect: the server's current state
         socket.on('currentPlayback', (playbackState) => {
           console.log('Got currentPlayback on join:', playbackState);
           syncToPlaybackState(playbackState);
         });
 
-        // Received when the owner triggers a play/pause
         socket.on('playbackCommand', (data) => {
           console.log('Received playbackCommand:', data);
           handlePlaybackCommand(data);
         });
       }
 
-      function setupUI() {
-        if (isOwner) {
-          // Show owner controls
-          document.getElementById('ownerControls').style.display = 'block';
-
-          // Owner's play/pause buttons
-          document.getElementById('playBtn').addEventListener('click', () => {
-            const currentTime = videoEl.currentTime;
-            sendPlaybackCommand('PLAY', currentTime);
-          });
-          document.getElementById('pauseBtn').addEventListener('click', () => {
-            const currentTime = videoEl.currentTime;
-            sendPlaybackCommand('PAUSE', currentTime);
-          });
-
-          // Send time updates to server
-          videoEl.addEventListener('timeupdate', () => {
-            socket.emit('timeUpdate', videoEl.currentTime);
-          });
-        } else {
-          // Show "Click to Start" for non-owners
-          document.getElementById('newViewerPrompt').style.display = 'block';
-          document.getElementById('startWatchingBtn')
-            .addEventListener('click', onNewViewerStart);
-        }
-      }
-
-      // Called when a new viewer clicks "Start Watching"
-      function onNewViewerStart() {
-        document.getElementById('newViewerPrompt').style.display = 'none';
-        videoEl.play().catch((err) => {
-          console.warn('Autoplay was blocked:', err);
-        });
-      }
-
-      // The owner calls this to send a command
       function sendPlaybackCommand(action, time) {
         handlePlaybackCommand({ action, time });
         socket.emit('playbackCommand', { action, time });
       }
 
-      // Apply an incoming playback command
       function handlePlaybackCommand({ action, time }) {
         videoEl.currentTime = time;
         if (action === 'PLAY') {
           videoEl.play().catch((err) => {
             console.warn('Autoplay blocked for PLAY command:', err);
+            showError('Playback blocked by browser. Click to play.');
           });
         } else if (action === 'PAUSE') {
           videoEl.pause();
         }
       }
 
-      // Sync to the server's current state
       function syncToPlaybackState({ status, time }) {
         videoEl.currentTime = time;
         if (status === 'PLAYING') {
           if (isOwner) {
             videoEl.play().catch((err) => {
               console.warn('Owner autoplay blocked:', err);
+              showError('Playback blocked by browser. Click to play.');
             });
           }
-          // If not owner, wait for click on startWatchingBtn
         } else {
           videoEl.pause();
         }

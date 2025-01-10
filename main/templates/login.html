@@ -34,6 +34,9 @@
         <form method="POST">
             <h1 class="h3 mb-3 fw-normal">Owner Login</h1>
             
+            <!-- Add CSRF Token -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
             {% with messages = get_flashed_messages() %}
                 {% if messages %}
                     {% for message in messages %}
