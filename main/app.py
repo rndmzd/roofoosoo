@@ -43,7 +43,7 @@ app.logger.addHandler(console_handler)
 app.logger.setLevel(logging.INFO)
 
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY')  # Load secret key from environment
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins=[domain.strip() for domain in config["DEFAULT"]["ALLOWED_DOMAINS"].split(",")])
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -160,6 +160,11 @@ def player(video_name):
 def serve_manifest(video_name):
     app.logger.debug(f'Serving manifest for video: {video_name}')
     return send_from_directory(os.path.join(MEDIA_DIR, video_name), "manifest.mpd")
+
+# Add new route for serving video segments
+@app.route("/manifest/<video_name>/<path:filename>")
+def serve_video_segment(video_name, filename):
+    return send_from_directory(os.path.join(MEDIA_DIR, video_name), filename)
 
 # Socket.IO event handlers
 @socketio.on('connect')
