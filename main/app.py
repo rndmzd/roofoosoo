@@ -119,6 +119,11 @@ def player(video_name):
 def serve_manifest(video_name):
     return send_from_directory(os.path.join(MEDIA_DIR, video_name), "manifest.mpd")
 
+# Add new route for serving video segments
+@app.route("/manifest/<video_name>/<path:filename>")
+def serve_video_segment(video_name, filename):
+    return send_from_directory(os.path.join(MEDIA_DIR, video_name), filename)
+
 # Socket.IO event handlers
 @socketio.on('connect')
 def handle_connect():
