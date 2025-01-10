@@ -218,7 +218,6 @@ def player(video_name):
         return render_template("error.html", error="An unexpected error occurred"), 500
 
 @app.route("/manifest/<video_name>/manifest.mpd")
-@cache.cached(timeout=60)  # Cache manifest for 1 minute
 def serve_manifest(video_name):
     try:
         app.logger.debug(f'Serving manifest for video: {video_name}')
@@ -232,7 +231,12 @@ def serve_manifest(video_name):
             app.logger.warning(f'Manifest file not found: {manifest_path}')
             return "Manifest not found", 404
         
-        response = make_response(send_from_directory(os.path.join(MEDIA_DIR, video_name), "manifest.mpd"))
+        # Read and cache the manifest content instead of the file handle
+        with open(manifest_path, 'r') as f:
+            manifest_content = f.read()
+            
+        response = make_response(manifest_content)
+        response.headers['Content-Type'] = 'application/dash+xml'
         response.headers['Cache-Control'] = 'public, max-age=60'
         return response
     except Exception as e:
