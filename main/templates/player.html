@@ -201,6 +201,10 @@
           </button>
           <div class="quality-menu" id="qualityMenu"></div>
         </div>
+
+        <button class="control-button" id="fullscreenBtn">
+          <i class="fas fa-expand"></i>
+        </button>
       </div>
     </div>
 
@@ -264,7 +268,21 @@
         const timeDisplay = document.getElementById('timeDisplay');
         const muteBtn = document.getElementById('muteBtn');
         const volumeSlider = document.getElementById('volumeSlider');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
         
+        // Fullscreen button
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        
+        // Update fullscreen button icon when fullscreen state changes
+        document.addEventListener('fullscreenchange', () => {
+          const icon = fullscreenBtn.querySelector('i');
+          if (document.fullscreenElement) {
+            icon.className = 'fas fa-compress';
+          } else {
+            icon.className = 'fas fa-expand';
+          }
+        });
+
         // Play/Pause button
         playPauseBtn.addEventListener('click', () => {
           if (isOwner) {
@@ -391,8 +409,34 @@
               videoEl.muted = !videoEl.muted;
               updateVolumeIcon();
               break;
+            case 'KeyF':
+              e.preventDefault();
+              toggleFullscreen();
+              break;
           }
         });
+      }
+
+      function toggleFullscreen() {
+        const videoContainer = document.querySelector('.video-container');
+        
+        if (!document.fullscreenElement) {
+          if (videoContainer.requestFullscreen) {
+            videoContainer.requestFullscreen();
+          } else if (videoContainer.webkitRequestFullscreen) {
+            videoContainer.webkitRequestFullscreen();
+          } else if (videoContainer.msRequestFullscreen) {
+            videoContainer.msRequestFullscreen();
+          }
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+          }
+        }
       }
 
       function showError(message) {
