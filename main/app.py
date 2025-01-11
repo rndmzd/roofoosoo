@@ -43,9 +43,17 @@ config.read("config.ini")
 
 # Configure Flask logger
 app = Flask(__name__)
+
+# Clear any existing handlers to prevent duplication
+app.logger.handlers.clear()
+
+# Add our custom handlers
 app.logger.addHandler(file_handler)
-app.logger.addHandler(console_handler)
+if app.debug:
+    app.logger.addHandler(console_handler)
 app.logger.setLevel(logging.INFO)
+# Prevent propagation to avoid duplicate logs
+app.logger.propagate = False
 
 # Configure caching
 cache = Cache(app, config={
