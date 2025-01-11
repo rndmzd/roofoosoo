@@ -171,7 +171,7 @@
     {% endif %}
     
     <div class="video-container">
-      <video id="video"></video>
+      <video id="video" autoplay muted></video>
       
       <div class="loading-overlay">
         <div class="spinner"></div>
@@ -248,10 +248,20 @@
 
             await player.load(manifestUri);
             console.log('Video loaded successfully');
+            
+            // Ensure volume slider reflects muted state
+            volumeSlider.value = 0;
+            updateVolumeIcon();
+            
             setupQualityMenu();
             initSocket();
             setupControls();
             setupKeyboardControls();
+            
+            // Start playback immediately
+            videoEl.play().catch(e => {
+              console.warn('Autoplay failed:', e);
+            });
           } catch (e) {
             console.error('Error loading video:', e);
             showError('Failed to load video');
