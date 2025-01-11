@@ -446,7 +446,12 @@
 
       // Socket.IO functions remain the same
       function initSocket() {
-        socket = io();
+        // Connect with video name parameter
+        socket = io({
+          query: {
+            video: '{{ video_name }}'
+          }
+        });
         
         socket.on('connect', () => {
           console.log('Socket connected:', socket.id);

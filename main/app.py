@@ -84,19 +84,19 @@ redis_client = redis.Redis(
 )
 
 # Initialize playback state in Redis if not exists
-def get_playback_state():
-    state = redis_client.get('playback_state')
+def get_playback_state(video_name):
+    state = redis_client.get(f'playback_state:{video_name}')
     if state is None:
         default_state = {
             "status": "PAUSED",
             "time": 0
         }
-        redis_client.set('playback_state', json.dumps(default_state))
+        redis_client.set(f'playback_state:{video_name}', json.dumps(default_state))
         return default_state
     return json.loads(state)
 
-def update_playback_state(state):
-    redis_client.set('playback_state', json.dumps(state))
+def update_playback_state(video_name, state):
+    redis_client.set(f'playback_state:{video_name}', json.dumps(state))
 
 # Enhanced User class
 class User(UserMixin):
@@ -278,9 +278,14 @@ def serve_video_segment(video_name, filename):
 # Socket.IO event handlers
 @socketio.on('connect')
 def handle_connect():
-    app.logger.info(f'New client connected: {request.sid}')
+    video_name = request.args.get('video')
+    if not video_name:
+        app.logger.warning(f'Client connected without video parameter: {request.sid}')
+        return
+        
+    app.logger.info(f'New client connected: {request.sid} for video: {video_name}')
     # Send current playback state from Redis to new client
-    emit('currentPlayback', get_playback_state())
+    emit('currentPlayback', get_playback_state(video_name))
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -293,29 +298,35 @@ def handle_playback_command(data):
         app.logger.warning(f'Unauthorized playback command from {request.sid}')
         return
         
+    video_name = request.args.get('video')
+    if not video_name:
+        app.logger.warning(f'Playback command received without video parameter: {request.sid}')
+        return
+        
     # Update Redis playback state
-    current_state = get_playback_state()
+    current_state = get_playback_state(video_name)
     current_state['time'] = data['time']
     if data['action'] == 'PLAY':
         current_state['status'] = 'PLAYING'
-        app.logger.info(f'Owner started playback at time: {data["time"]}')
+        app.logger.info(f'Owner started playback of {video_name} at time: {data["time"]}')
     elif data['action'] == 'PAUSE':
         current_state['status'] = 'PAUSED'
-        app.logger.info(f'Owner paused playback at time: {data["time"]}')
+        app.logger.info(f'Owner paused playback of {video_name} at time: {data["time"]}')
     
-    update_playback_state(current_state)
+    update_playback_state(video_name, current_state)
     
-    # Broadcast to all other clients
-    emit('playbackCommand', data, broadcast=True, include_self=False)
-    app.logger.debug(f'Broadcasted playback command to all clients')
+    # Broadcast to all other clients in the same video room
+    emit('playbackCommand', data, broadcast=True, include_self=False, to=video_name)
 
 @socketio.on('timeUpdate')
 def handle_time_update(time):
     if current_user.is_authenticated:  # Only owner can update time
-        current_state = get_playback_state()
-        current_state['time'] = time
-        update_playback_state(current_state)
-        app.logger.debug(f'Updated playback time to: {time}')
+        video_name = request.args.get('video')
+        if video_name:
+            current_state = get_playback_state(video_name)
+            current_state['time'] = time
+            update_playback_state(video_name, current_state)
+            app.logger.debug(f'Updated playback time for {video_name} to: {time}')
 
 # Error handlers
 @app.errorhandler(404)
