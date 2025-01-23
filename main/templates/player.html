@@ -42,6 +42,25 @@
         opacity: 0;
         transition: opacity 0.3s;
       }
+      {% if not is_owner %}
+      .owner-only-control {
+        display: none !important;
+        pointer-events: none;
+      }
+      .video-container {
+        pointer-events: none;
+      }
+      #video {
+        pointer-events: none;
+      }
+      /* Re-enable pointer events for the controls container and volume/fullscreen controls */
+      .controls {
+        pointer-events: auto;
+      }
+      .volume-control, #fullscreenBtn {
+        pointer-events: auto;
+      }
+      {% endif %}
       .video-container:hover .controls {
         opacity: 1;
       }
@@ -178,7 +197,7 @@
       </div>
 
       <div class="controls">
-        <button class="control-button" id="playPauseBtn">
+        <button class="control-button owner-only-control" id="playPauseBtn">
           <i class="fas fa-play"></i>
         </button>
         
@@ -189,13 +208,13 @@
           <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100">
         </div>
 
-        <div class="progress-bar" id="progressBar">
+        <div class="progress-bar owner-only-control" id="progressBar">
           <div class="progress-fill" id="progressFill"></div>
         </div>
         
-        <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+        <span class="time-display owner-only-control" id="timeDisplay">0:00 / 0:00</span>
         
-        <div class="quality-selector">
+        <div class="quality-selector owner-only-control">
           <button class="control-button" id="qualityBtn">
             <i class="fas fa-cog"></i>
           </button>
@@ -249,14 +268,16 @@
             await player.load(manifestUri);
             console.log('Video loaded successfully');
             
-            // Ensure volume slider reflects muted state
-            volumeSlider.value = 0;
-            updateVolumeIcon();
+            // Setup owner-only controls
+            if (isOwner) {
+              setupOwnerControls();
+              setupKeyboardControls();
+            }
             
-            setupQualityMenu();
+            // Setup universal controls (volume and fullscreen)
+            setupUniversalControls();
+            
             initSocket();
-            setupControls();
-            setupKeyboardControls();
             
             // Start playback immediately
             videoEl.play().catch(e => {
@@ -271,11 +292,7 @@
         }
       }
 
-      function setupControls() {
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const progressBar = document.getElementById('progressBar');
-        const progressFill = document.getElementById('progressFill');
-        const timeDisplay = document.getElementById('timeDisplay');
+      function setupUniversalControls() {
         const muteBtn = document.getElementById('muteBtn');
         const volumeSlider = document.getElementById('volumeSlider');
         const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -293,29 +310,6 @@
           }
         });
 
-        // Play/Pause button
-        playPauseBtn.addEventListener('click', () => {
-          if (isOwner) {
-            const currentTime = videoEl.currentTime;
-            if (videoEl.paused) {
-              sendPlaybackCommand('PLAY', currentTime);
-            } else {
-              sendPlaybackCommand('PAUSE', currentTime);
-            }
-          }
-        });
-
-        // Progress bar
-        progressBar.addEventListener('click', (e) => {
-          if (isOwner) {
-            const rect = progressBar.getBoundingClientRect();
-            const pos = (e.clientX - rect.left) / rect.width;
-            const time = pos * videoEl.duration;
-            videoEl.currentTime = time;
-            sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', time);
-          }
-        });
-
         // Volume control
         volumeSlider.addEventListener('input', (e) => {
           videoEl.volume = e.target.value / 100;
@@ -325,6 +319,32 @@
         muteBtn.addEventListener('click', () => {
           videoEl.muted = !videoEl.muted;
           updateVolumeIcon();
+        });
+      }
+
+      function setupOwnerControls() {
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const timeDisplay = document.getElementById('timeDisplay');
+        
+        // Play/Pause button
+        playPauseBtn.addEventListener('click', () => {
+          const currentTime = videoEl.currentTime;
+          if (videoEl.paused) {
+            sendPlaybackCommand('PLAY', currentTime);
+          } else {
+            sendPlaybackCommand('PAUSE', currentTime);
+          }
+        });
+
+        // Progress bar
+        progressBar.addEventListener('click', (e) => {
+          const rect = progressBar.getBoundingClientRect();
+          const pos = (e.clientX - rect.left) / rect.width;
+          const time = pos * videoEl.duration;
+          videoEl.currentTime = time;
+          sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', time);
         });
 
         // Time update
@@ -346,6 +366,9 @@
         videoEl.addEventListener('pause', () => {
           playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
         });
+
+        // Setup quality menu for owner
+        setupQualityMenu();
       }
 
       function updateVolumeIcon() {
@@ -388,32 +411,37 @@
 
       function setupKeyboardControls() {
         document.addEventListener('keydown', (e) => {
-          if (!isOwner) return;
+          // Owner-only keyboard controls
+          if (isOwner) {
+            switch(e.code) {
+              case 'Space':
+                e.preventDefault();
+                const currentTime = videoEl.currentTime;
+                if (videoEl.paused) {
+                  sendPlaybackCommand('PLAY', currentTime);
+                } else {
+                  sendPlaybackCommand('PAUSE', currentTime);
+                }
+                break;
+              case 'ArrowLeft':
+                e.preventDefault();
+                if (videoEl.currentTime >= 5) {
+                  videoEl.currentTime -= 5;
+                  sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', videoEl.currentTime);
+                }
+                break;
+              case 'ArrowRight':
+                e.preventDefault();
+                if (videoEl.currentTime <= videoEl.duration - 5) {
+                  videoEl.currentTime += 5;
+                  sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', videoEl.currentTime);
+                }
+                break;
+            }
+          }
           
+          // Universal keyboard controls (volume and fullscreen)
           switch(e.code) {
-            case 'Space':
-              e.preventDefault();
-              const currentTime = videoEl.currentTime;
-              if (videoEl.paused) {
-                sendPlaybackCommand('PLAY', currentTime);
-              } else {
-                sendPlaybackCommand('PAUSE', currentTime);
-              }
-              break;
-            case 'ArrowLeft':
-              e.preventDefault();
-              if (videoEl.currentTime >= 5) {
-                videoEl.currentTime -= 5;
-                sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', videoEl.currentTime);
-              }
-              break;
-            case 'ArrowRight':
-              e.preventDefault();
-              if (videoEl.currentTime <= videoEl.duration - 5) {
-                videoEl.currentTime += 5;
-                sendPlaybackCommand(videoEl.paused ? 'PAUSE' : 'PLAY', videoEl.currentTime);
-              }
-              break;
             case 'KeyM':
               e.preventDefault();
               videoEl.muted = !videoEl.muted;
