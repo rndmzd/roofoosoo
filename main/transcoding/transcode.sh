@@ -79,42 +79,36 @@ output_dir="$ROOT_DIR/main/media/${torrentname}"
 mkdir -p "$output_dir"
 mkdir -p "$output_dir/segments"
 
-# Transcode to shared fMP4 segments for both DASH and HLS
 echo "Starting FFmpeg transcoding for: $largest_file" >> "$LOG_FILE"
 
+# Single pass for both DASH and HLS using fMP4
 ffmpeg -i "$largest_file" \
     -filter_complex "[0:v]split=3[v1][v2][v3]; \
     [v1]scale=w=1920:h=1080[v1out]; \
     [v2]scale=w=1280:h=720[v2out]; \
     [v3]scale=w=854:h=480[v3out]" \
-    -map "[v1out]" -c:v:0 libx264 -b:v:0 5000k -maxrate:v:0 5350k -bufsize:v:0 7500k -map 0:a -c:a aac -ar 48000 -b:a 192k \
-    -map "[v2out]" -c:v:1 libx264 -b:v:1 3000k -maxrate:v:1 3210k -bufsize:v:1 4500k -map 0:a -c:a aac -ar 48000 -b:a 128k \
-    -map "[v3out]" -c:v:2 libx264 -b:v:2 1000k -maxrate:v:2 1070k -bufsize:v:2 1500k -map 0:a -c:a aac -ar 48000 -b:a 96k \
-    -init_seg_name "init_\$RepresentationID\$.m4s" \
-    -media_seg_name "chunk_\$RepresentationID\$_\$Number%05d\$.m4s" \
+    -map "[v1out]" -c:v:0 libx264 -b:v:0 5000k -maxrate:v:0 5350k -bufsize:v:0 7500k -map 0:a:0 -c:a:0 aac -ar 48000 -b:a:0 192k \
+    -map "[v2out]" -c:v:1 libx264 -b:v:1 3000k -maxrate:v:1 3210k -bufsize:v:1 4500k -map 0:a:0 -c:a:1 aac -ar 48000 -b:a:1 128k \
+    -map "[v3out]" -c:v:2 libx264 -b:v:2 1000k -maxrate:v:2 1070k -bufsize:v:2 1500k -map 0:a:0 -c:a:2 aac -ar 48000 -b:a:2 96k \
+    -init_seg_name "segments/init_\$RepresentationID\$.m4s" \
+    -media_seg_name "segments/chunk_\$RepresentationID\$_\$Number%05d\$.m4s" \
     -use_template 1 -use_timeline 1 \
     -seg_duration 8 \
     -adaptation_sets "id=0,streams=v id=1,streams=a" \
     -f dash "$output_dir/manifest.mpd" \
+    -f hls \
     -hls_segment_type fmp4 \
+    -hls_fmp4_init_filename "segments/init_\$RepresentationID\$.m4s" \
+    -hls_segment_filename "segments/chunk_\$RepresentationID\$_%05d.m4s" \
     -hls_time 8 \
     -hls_playlist_type vod \
     -master_pl_name master.m3u8 \
     -var_stream_map "v:0,a:0 v:1,a:1 v:2,a:2" \
-    -hls_fmp4_init_filename "init_\$RepresentationID\$.m4s" \
-    -hls_segment_filename "$output_dir/segments/chunk_\$RepresentationID\$_%05d.m4s" \
     "$output_dir/stream_%v.m3u8" >> "$LOG_FILE" 2>&1
 
-# Check the exit status of FFmpeg
+# Check if transcoding was successful
 if [[ $? -eq 0 ]]; then
     echo "Transcoding completed successfully. DASH and HLS outputs at: $output_dir" >> "$LOG_FILE"
-    
-    # Create symbolic links for HLS segments to DASH segments
-    echo "Creating symbolic links for shared segments..." >> "$LOG_FILE"
-    cd "$output_dir"
-    for f in segments/*.m4s; do
-        ln -sf "$f" "hls/${f##*/}" 2>> "$LOG_FILE"
-    done
 else
     echo "Error during transcoding. Check the log file for details." >> "$LOG_FILE"
     exit 1
