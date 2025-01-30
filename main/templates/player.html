@@ -214,7 +214,7 @@
         
         <span class="time-display owner-only-control" id="timeDisplay">0:00 / 0:00</span>
         
-        <div class="quality-selector owner-only-control">
+        <div class="quality-selector">
           <button class="control-button" id="qualityBtn">
             <i class="fas fa-cog"></i>
           </button>
@@ -251,6 +251,17 @@
           try {
             videoEl = document.getElementById('video');
             player = new shaka.Player(videoEl);
+            
+            // Configure ABR (Adaptive Bitrate) settings
+            player.configure({
+              abr: {
+                enabled: true,
+                defaultBandwidthEstimate: 1000000, // 1Mbps initial estimate
+                switchInterval: 8, // Time in seconds between ABR switches
+                bandwidthUpgradeTarget: 0.85, // Fraction of estimated bandwidth to use
+                bandwidthDowngradeTarget: 0.95,
+              }
+            });
             
             // Error handling
             player.addEventListener('error', (event) => {
@@ -296,6 +307,9 @@
         const muteBtn = document.getElementById('muteBtn');
         const volumeSlider = document.getElementById('volumeSlider');
         const fullscreenBtn = document.getElementById('fullscreenBtn');
+        
+        // Setup quality menu for all users
+        setupQualityMenu();
         
         // Fullscreen button
         fullscreenBtn.addEventListener('click', toggleFullscreen);
@@ -387,10 +401,21 @@
         const qualityMenu = document.getElementById('qualityMenu');
         const qualityBtn = document.getElementById('qualityBtn');
 
+        // Add "Auto" option for adaptive streaming
+        const autoButton = document.createElement('button');
+        autoButton.textContent = 'Auto';
+        autoButton.onclick = () => {
+          player.configure({abr: {enabled: true}});
+          qualityMenu.classList.remove('show');
+        };
+        qualityMenu.appendChild(autoButton);
+
+        // Add manual quality options
         tracks.forEach(track => {
           const button = document.createElement('button');
           button.textContent = `${track.height}p`;
           button.onclick = () => {
+            player.configure({abr: {enabled: false}});
             player.selectVariantTrack(track);
             qualityMenu.classList.remove('show');
           };
