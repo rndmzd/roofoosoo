@@ -87,19 +87,23 @@ ffmpeg -i "$largest_file" \
     [v1]scale=w=1920:h=1080[v1out]; \
     [v2]scale=w=1280:h=720[v2out]; \
     [v3]scale=w=854:h=480[v3out]" \
-    -map "[v1out]" -c:v:0 libx264 -b:v:0 5000k -maxrate:v:0 5350k -bufsize:v:0 7500k -map 0:a:0 -c:a:0 aac -ar 48000 -b:a:0 192k \
-    -map "[v2out]" -c:v:1 libx264 -b:v:1 3000k -maxrate:v:1 3210k -bufsize:v:1 4500k -map 0:a:0 -c:a:1 aac -ar 48000 -b:a:1 128k \
-    -map "[v3out]" -c:v:2 libx264 -b:v:2 1000k -maxrate:v:2 1070k -bufsize:v:2 1500k -map 0:a:0 -c:a:2 aac -ar 48000 -b:a:2 96k \
+    -map "[v1out]" -c:v:0 libx264 -b:v:0 5000k -maxrate:v:0 5350k -bufsize:v:0 7500k \
+    -map "[v2out]" -c:v:1 libx264 -b:v:1 3000k -maxrate:v:1 3210k -bufsize:v:1 4500k \
+    -map "[v3out]" -c:v:2 libx264 -b:v:2 1000k -maxrate:v:2 1070k -bufsize:v:2 1500k \
+    -map 0:a:0 -c:a:0 aac -ar 48000 -b:a:0 192k \
+    -map 0:a:0 -c:a:1 aac -ar 48000 -b:a:1 128k \
+    -map 0:a:0 -c:a:2 aac -ar 48000 -b:a:2 96k \
     -init_seg_name "segments/init_\$RepresentationID\$.m4s" \
     -media_seg_name "segments/chunk_\$RepresentationID\$_\$Number%05d\$.m4s" \
     -use_template 1 -use_timeline 1 \
     -seg_duration 8 \
     -adaptation_sets "id=0,streams=v id=1,streams=a" \
     -f dash "$output_dir/manifest.mpd" \
+    -c copy \
     -f hls \
     -hls_segment_type fmp4 \
-    -hls_fmp4_init_filename "segments/init_\$RepresentationID\$.m4s" \
-    -hls_segment_filename "segments/chunk_\$RepresentationID\$_%05d.m4s" \
+    -hls_fmp4_init_filename "segments/init_%v.m4s" \
+    -hls_segment_filename "segments/chunk_%v_%03d.m4s" \
     -hls_time 8 \
     -hls_playlist_type vod \
     -master_pl_name master.m3u8 \
