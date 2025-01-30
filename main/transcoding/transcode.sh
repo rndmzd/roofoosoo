@@ -79,9 +79,9 @@ output_dir="$ROOT_DIR/main/media/${torrentname}"
 mkdir -p "$output_dir"
 mkdir -p "$output_dir/segments"
 
-echo "Starting FFmpeg transcoding for: $largest_file" >> "$LOG_FILE"
+echo "Starting FFmpeg transcoding for DASH: $largest_file" >> "$LOG_FILE"
 
-# Single pass for both DASH and HLS using fMP4
+# First pass: Create DASH output with fMP4 segments
 ffmpeg -i "$largest_file" \
     -filter_complex "[0:v]split=3[v1][v2][v3]; \
     [v1]scale=w=1920:h=1080[v1out]; \
@@ -98,23 +98,43 @@ ffmpeg -i "$largest_file" \
     -use_template 1 -use_timeline 1 \
     -seg_duration 8 \
     -adaptation_sets "id=0,streams=v id=1,streams=a" \
-    -f dash "$output_dir/manifest.mpd" \
-    -c copy \
+    -f dash "$output_dir/manifest.mpd" >> "$LOG_FILE" 2>&1
+
+# Check if DASH transcoding was successful
+if [[ $? -ne 0 ]]; then
+    echo "Error during DASH transcoding. Check the log file for details." >> "$LOG_FILE"
+    exit 1
+fi
+
+echo "Starting FFmpeg transcoding for HLS: $largest_file" >> "$LOG_FILE"
+
+# Second pass: Create HLS playlists using the same segments
+ffmpeg -i "$largest_file" \
+    -filter_complex "[0:v]split=3[v1][v2][v3]; \
+    [v1]scale=w=1920:h=1080[v1out]; \
+    [v2]scale=w=1280:h=720[v2out]; \
+    [v3]scale=w=854:h=480[v3out]" \
+    -map "[v1out]" -c:v:0 libx264 -b:v:0 5000k -maxrate:v:0 5350k -bufsize:v:0 7500k \
+    -map "[v2out]" -c:v:1 libx264 -b:v:1 3000k -maxrate:v:1 3210k -bufsize:v:1 4500k \
+    -map "[v3out]" -c:v:2 libx264 -b:v:2 1000k -maxrate:v:2 1070k -bufsize:v:2 1500k \
+    -map 0:a:0 -c:a:0 aac -ar 48000 -b:a:0 192k \
+    -map 0:a:0 -c:a:1 aac -ar 48000 -b:a:1 128k \
+    -map 0:a:0 -c:a:2 aac -ar 48000 -b:a:2 96k \
     -f hls \
     -hls_segment_type fmp4 \
-    -hls_fmp4_init_filename "segments/init_%v.m4s" \
-    -hls_segment_filename "segments/chunk_%v_%03d.m4s" \
+    -hls_fmp4_init_filename "$output_dir/segments/init_%v.m4s" \
+    -hls_segment_filename "$output_dir/segments/chunk_%v_%03d.m4s" \
     -hls_time 8 \
     -hls_playlist_type vod \
     -master_pl_name master.m3u8 \
     -var_stream_map "v:0,a:0 v:1,a:1 v:2,a:2" \
     "$output_dir/stream_%v.m3u8" >> "$LOG_FILE" 2>&1
 
-# Check if transcoding was successful
+# Check if HLS transcoding was successful
 if [[ $? -eq 0 ]]; then
     echo "Transcoding completed successfully. DASH and HLS outputs at: $output_dir" >> "$LOG_FILE"
 else
-    echo "Error during transcoding. Check the log file for details." >> "$LOG_FILE"
+    echo "Error during HLS transcoding. Check the log file for details." >> "$LOG_FILE"
     exit 1
 fi
 
