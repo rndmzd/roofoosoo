@@ -1,4 +1,4 @@
 #!/bin/bash
 
 # Set the correct permissions for the files
-chown -Rv ubuntu:www-data ./
+chown -Rc ubuntu:www-data ./
